@@ -166,6 +166,11 @@ export const DATE_FORMATS = [
   value: (typeof VALID_DATE_FORMAT_VALUES)[number];
 }[];
 
+export const dateFormatHasTime = (dateFormat: string): boolean => {
+  const unquotedFormat = dateFormat.replace(/'[^']*'/g, '');
+  return /[hHms]/.test(unquotedFormat);
+};
+
 export const convertToLocalSystemFormat = (
   customText: string,
   dateFormat: string | null = DEFAULT_DOCUMENT_DATE_FORMAT,
@@ -180,6 +185,10 @@ export const convertToLocalSystemFormat = (
 
   if (!parsedDate.isValid) {
     return 'Invalid date';
+  }
+
+  if (!dateFormatHasTime(coalescedDateFormat)) {
+    return parsedDate.toFormat(coalescedDateFormat);
   }
 
   const formattedDate = parsedDate.toLocal().toFormat(coalescedDateFormat);
