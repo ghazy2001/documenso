@@ -1288,6 +1288,50 @@ test.describe('Find Documents UI - Rejected and Expired Tabs', () => {
     await expect(page.getByRole('link', { name: 'Expired CC Doc' })).not.toBeVisible();
   });
 
+  test('expired tab excludes rejected documents with expired recipients', async ({ page }) => {
+    const { user: owner, team } = await seedUser();
+    const { user: recipient1 } = await seedUser();
+    const { user: recipient2 } = await seedUser();
+
+    // A rejected document with 2 recipients: recipient1 rejected, recipient2 unsigned and expired.
+    const rejectedDoc = await seedPendingDocument(owner, team.id, [recipient1, recipient2], {
+      createDocumentOptions: { title: 'Rejected Doc with Expired Recipient' },
+    });
+    await prisma.envelope.update({
+      where: { id: rejectedDoc.id },
+      data: { status: DocumentStatus.REJECTED },
+    });
+    await prisma.recipient.updateMany({
+      where: { envelopeId: rejectedDoc.id, email: recipient1.email },
+      data: { signingStatus: SigningStatus.REJECTED },
+    });
+    await prisma.recipient.updateMany({
+      where: { envelopeId: rejectedDoc.id, email: recipient2.email },
+      data: { expiresAt: PAST, signingStatus: SigningStatus.NOT_SIGNED },
+    });
+
+    // A genuinely expired pending document.
+    const expiredDoc = await seedPendingDocument(owner, team.id, [recipient1], {
+      createDocumentOptions: { title: 'Expired Valid Doc' },
+    });
+    await prisma.recipient.updateMany({
+      where: { envelopeId: expiredDoc.id },
+      data: { expiresAt: PAST },
+    });
+
+    await apiSignin({
+      page,
+      email: owner.email,
+      redirectPath: `/t/${team.url}/documents`,
+    });
+
+    // Rejected doc appears under Rejected (1), not Expired.
+    await checkDocumentTabCount(page, 'Rejected', 1);
+    await checkDocumentTabCount(page, 'Expired', 1);
+    await expect(page.getByRole('link', { name: 'Expired Valid Doc' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Rejected Doc with Expired Recipient' })).not.toBeVisible();
+  });
+
   test('rejected and expired tabs show tailored empty states when nothing matches', async ({ page }) => {
     const { user: owner, team } = await seedUser();
     const { user: recipient } = await seedUser();

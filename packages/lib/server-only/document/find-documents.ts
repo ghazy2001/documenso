@@ -318,7 +318,9 @@ export const findDocuments = async ({
           ),
       )
       .with(ExtendedDocumentStatus.EXPIRED, () =>
-        qb.where((eb) =>
+        qb
+          .where('Envelope.status', '=', sql.lit(ExtendedDocumentStatus.PENDING))
+          .where((eb) =>
           eb.and([
             personalDeletedFilter(eb),
             hasExpiredRecipient(eb),
@@ -477,7 +479,9 @@ export const findDocuments = async ({
         }),
       )
       .with(ExtendedDocumentStatus.EXPIRED, () =>
-        qb.where((eb) => {
+        qb
+          .where('Envelope.status', '=', sql.lit(ExtendedDocumentStatus.PENDING))
+          .where((eb) => {
           const accessBranches = [eb('Envelope.teamId', '=', teamData.id)];
 
           if (teamEmail) {
