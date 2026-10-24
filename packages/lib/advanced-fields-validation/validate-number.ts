@@ -2,6 +2,24 @@ import { numberFormatValues } from '@documenso/ui/primitives/document-flow/field
 
 import type { TNumberFieldMeta as NumberFieldMeta } from '../types/field-meta';
 
+export const parseFormattedNumber = (value: string, numberFormat?: string): number => {
+  if (!value) {
+    return NaN;
+  }
+
+  const trimmed = value.trim();
+
+  if (numberFormat === '123.456.789,00') {
+    return parseFloat(trimmed.replace(/\./g, '').replace(/,/g, '.'));
+  }
+
+  if (numberFormat === '123,456,789.00' || numberFormat === '123456,789.00') {
+    return parseFloat(trimmed.replace(/,/g, ''));
+  }
+
+  return parseFloat(trimmed);
+};
+
 export const validateNumberField = (
   value: string,
   fieldMeta?: NumberFieldMeta,
@@ -23,7 +41,7 @@ export const validateNumberField = (
     }
   }
 
-  const numberValue = parseFloat(value);
+  const numberValue = parseFormattedNumber(value, numberFormat);
 
   if (isSigningPage && required && !value) {
     errors.push('Value is required');
