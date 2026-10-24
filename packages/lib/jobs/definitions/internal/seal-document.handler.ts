@@ -343,7 +343,7 @@ export const run = async ({ payload, io }: { payload: TSealDocumentJobDefinition
   let shouldSendCompletedEmail = sendEmail && !isResealing && !isRejected;
 
   if (isResealing && !isDocumentCompleted(envelopeStatus)) {
-    shouldSendCompletedEmail = sendEmail;
+    shouldSendCompletedEmail = sendEmail && !isRejected;
   }
 
   if (shouldSendCompletedEmail) {
