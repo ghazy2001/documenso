@@ -256,7 +256,9 @@ export const getStats = async ({ userId, teamId, period, search = '', folderId, 
 
   // EXPIRED: docs visible to the team/user with at least one expired, unsigned recipient.
   // Access control mirrors the EXPIRED branch in findDocuments so the count matches the listing.
-  const expiredQuery = buildBaseQuery().where((eb) => {
+  const expiredQuery = buildBaseQuery()
+    .where('Envelope.status', '=', sql.lit(DocumentStatus.PENDING))
+    .where((eb) => {
     const accessBranches = [eb('Envelope.teamId', '=', team.id)];
 
     if (teamEmail) {
