@@ -11,7 +11,7 @@ import { Trans } from '@lingui/react/macro';
 import type { Role, Subscription } from '@prisma/client';
 import { Edit, Loader } from 'lucide-react';
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 type UserData = {
   id: number;
@@ -34,9 +34,12 @@ type AdminDashboardUsersTableProps = {
 export const AdminDashboardUsersTable = ({ users, totalPages, perPage, page }: AdminDashboardUsersTableProps) => {
   const { _ } = useLingui();
 
+  const [searchParams] = useSearchParams();
+  const urlSearch = searchParams.get('search') ?? '';
+
   const [isPending, startTransition] = useTransition();
   const updateSearchParams = useUpdateSearchParams();
-  const [searchString, setSearchString] = useState('');
+  const [searchString, setSearchString] = useState(urlSearch);
   const debouncedSearchString = useDebouncedValue(searchString, 1000);
 
   const columns = useMemo(() => {
@@ -80,9 +83,13 @@ export const AdminDashboardUsersTable = ({ users, totalPages, perPage, page }: A
         },
       },
     ] satisfies DataTableColumnDef<(typeof users)[number]>[];
-  }, []);
+  }, [_]);
 
   useEffect(() => {
+    if (debouncedSearchString === urlSearch) {
+      return;
+    }
+
     startTransition(() => {
       updateSearchParams({
         search: debouncedSearchString,
@@ -90,8 +97,11 @@ export const AdminDashboardUsersTable = ({ users, totalPages, perPage, page }: A
         perPage,
       });
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearchString]);
+  }, [debouncedSearchString, urlSearch, perPage, updateSearchParams]);
+
+  useEffect(() => {
+    setSearchString(urlSearch);
+  }, [urlSearch]);
 
   const onPaginationChange = (page: number, perPage: number) => {
     startTransition(() => {

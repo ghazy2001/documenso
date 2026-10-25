@@ -9,8 +9,8 @@ import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 import { ChevronDownIcon, ChevronsUpDown, ChevronUpIcon, Loader } from 'lucide-react';
-import { useEffect, useMemo, useState, useTransition } from 'react';
-import { Link } from 'react-router';
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { Link, useSearchParams } from 'react-router';
 
 export type OrganisationOverview = {
   id: string;
@@ -45,10 +45,28 @@ export const AdminOrganisationOverviewTable = ({
 }: OrganisationOverviewTableProps) => {
   const { _, i18n } = useLingui();
 
+  const [searchParams] = useSearchParams();
+  const urlSearch = searchParams.get('search') ?? '';
+
   const [isPending, startTransition] = useTransition();
   const updateSearchParams = useUpdateSearchParams();
-  const [searchString, setSearchString] = useState('');
+  const [searchString, setSearchString] = useState(urlSearch);
   const debouncedSearchString = useDebouncedValue(searchString, 1000);
+
+  const handleColumnSort = useCallback(
+    (column: 'name' | 'createdAt' | 'signingVolume') => {
+      startTransition(() => {
+        updateSearchParams({
+          search: debouncedSearchString,
+          page,
+          perPage,
+          sortBy: column,
+          sortOrder: sortBy === column && sortOrder === 'asc' ? 'desc' : 'asc',
+        });
+      });
+    },
+    [debouncedSearchString, page, perPage, sortBy, sortOrder, updateSearchParams],
+  );
 
   const columns = useMemo(() => {
     return [
@@ -143,9 +161,13 @@ export const AdminOrganisationOverviewTable = ({
         size: 120,
       },
     ] satisfies DataTableColumnDef<OrganisationOverview>[];
-  }, [sortOrder, sortBy, dateRange]);
+  }, [_, dateRange, handleColumnSort, i18n, sortBy, sortOrder]);
 
   useEffect(() => {
+    if (debouncedSearchString === urlSearch) {
+      return;
+    }
+
     startTransition(() => {
       updateSearchParams({
         search: debouncedSearchString,
@@ -155,8 +177,11 @@ export const AdminOrganisationOverviewTable = ({
         sortOrder,
       });
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearchString]);
+  }, [debouncedSearchString, urlSearch, perPage, sortBy, sortOrder, updateSearchParams]);
+
+  useEffect(() => {
+    setSearchString(urlSearch);
+  }, [urlSearch]);
 
   const onPaginationChange = (page: number, perPage: number) => {
     startTransition(() => {
@@ -169,18 +194,6 @@ export const AdminOrganisationOverviewTable = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchString(e.target.value);
-  };
-
-  const handleColumnSort = (column: 'name' | 'createdAt' | 'signingVolume') => {
-    startTransition(() => {
-      updateSearchParams({
-        search: debouncedSearchString,
-        page,
-        perPage,
-        sortBy: column,
-        sortOrder: sortBy === column && sortOrder === 'asc' ? 'desc' : 'asc',
-      });
-    });
   };
 
   return (
