@@ -92,7 +92,10 @@ export const DocumentSigningSignatureField = ({
   }, [field.inserted, signature?.signatureImageAsBase64]);
 
   const onPreSign = () => {
-    if (!providedSignature) {
+    const isDisallowedTypedSignature =
+      Boolean(providedSignature) && !providedSignature?.startsWith('data:image') && typedSignatureEnabled === false;
+
+    if (!providedSignature || isDisallowedTypedSignature) {
       setShowSignatureModal(true);
       return false;
     }
@@ -129,6 +132,8 @@ export const DocumentSigningSignatureField = ({
       const isTypedSignature = !value.startsWith('data:image');
 
       if (isTypedSignature && typedSignatureEnabled === false) {
+        setShowSignatureModal(true);
+
         toast({
           title: _(msg`Error`),
           description: _(msg`Typed signatures are not allowed. Please draw your signature.`),
