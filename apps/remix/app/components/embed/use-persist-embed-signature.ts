@@ -1,48 +1,63 @@
-import { DO_NOT_INVALIDATE_QUERY_ON_MUTATION } from '@documenso/lib/constants/trpc';
-import { trpc } from '@documenso/trpc/react';
-import { useCallback, useRef } from 'react';
+import { DO_NOT_INVALIDATE_QUERY_ON_MUTATION } from "@documenso/lib/constants/trpc";
+import { trpc } from "@documenso/trpc/react";
+import { useCallback, useRef } from "react";
 
 export type UsePersistEmbedSignatureOptions = {
-  token: string;
-  clientUserId: string | null | undefined;
-  initialSignature: string | null | undefined;
+	token: string;
+	clientUserId: string | null | undefined;
+	initialSignature: string | null | undefined;
 };
 
 export const usePersistEmbedSignature = ({
-  token,
-  clientUserId,
-  initialSignature,
+	token,
+	clientUserId,
+	initialSignature,
 }: UsePersistEmbedSignatureOptions) => {
-  const { mutate } = trpc.embeddingPresign.persistEmbedSignature.useMutation({
-    ...DO_NOT_INVALIDATE_QUERY_ON_MUTATION,
-  });
+	const { mutate } = trpc.embeddingPresign.persistEmbedSignature.useMutation({
+		...DO_NOT_INVALIDATE_QUERY_ON_MUTATION,
+	});
 
-  const lastPersistedSignature = useRef(initialSignature || null);
+	const lastPersistedSignature = useRef(initialSignature || null);
+	const pendingSignature = useRef<string | null>(null);
 
-  const persistSignature = useCallback(
-    (signature: string | null | undefined) => {
-      const nextSignature = signature || null;
+	const persistSignature = useCallback(
+		(signature: string | null | undefined) => {
+			const nextSignature = signature || null;
 
-      if (!clientUserId || !nextSignature || nextSignature === lastPersistedSignature.current) {
-        return;
-      }
+			if (
+				!clientUserId ||
+				!nextSignature ||
+				nextSignature === lastPersistedSignature.current ||
+				nextSignature === pendingSignature.current
+			) {
+				return;
+			}
 
-      mutate(
-        {
-          token,
-          clientUserId,
-          signature: nextSignature,
-        },
-        {
-          onSuccess: () => {
-            lastPersistedSignature.current = nextSignature;
-          },
-          onError: () => null,
-        },
-      );
-    },
-    [token, clientUserId, mutate],
-  );
+			pendingSignature.current = nextSignature;
 
-  return { persistSignature };
+			mutate(
+				{
+					token,
+					clientUserId,
+					signature: nextSignature,
+				},
+				{
+					onSuccess: () => {
+						lastPersistedSignature.current = nextSignature;
+						if (pendingSignature.current === nextSignature) {
+							pendingSignature.current = null;
+						}
+					},
+					onError: () => {
+						if (pendingSignature.current === nextSignature) {
+							pendingSignature.current = null;
+						}
+					},
+				},
+			);
+		},
+		[token, clientUserId, mutate],
+	);
+
+	return { persistSignature };
 };
