@@ -10,6 +10,7 @@ import {
   OIDC_PROVIDER_LABEL,
 } from '@documenso/lib/constants/auth';
 import { isValidReturnTo, normalizeReturnTo } from '@documenso/lib/utils/is-valid-return-to';
+import { shouldAutoRedirectToOidc } from '@documenso/lib/utils/oidc-auto-redirect';
 import { Alert, AlertDescription } from '@documenso/ui/primitives/alert';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
@@ -40,12 +41,19 @@ export async function loader({ request }: Route.LoaderArgs) {
   const isMicrosoftSSOEnabled = IS_MICROSOFT_SSO_ENABLED && isSigninEnabledForProvider('microsoft');
   const isOIDCSSOEnabled = IS_OIDC_SSO_ENABLED && isSigninEnabledForProvider('oidc');
 
+  const requestUrl = new URL(request.url);
+  const hasError = Boolean(requestUrl.searchParams.get('error'));
+
   // Automatically redirect to OIDC when it is the only enabled signin transport,
-  // unless the redirect has been explicitly disabled via env.
+  // unless the redirect has been explicitly disabled via env or an error is present.
   const isOIDCOnlyTransport =
     isOIDCSSOEnabled && !isEmailPasswordSigninEnabled && !isGoogleSSOEnabled && !isMicrosoftSSOEnabled;
 
-  const shouldAutoRedirectToOIDC = isOIDCOnlyTransport && !IS_OIDC_AUTO_REDIRECT_DISABLED;
+  const shouldAutoRedirectToOIDC = shouldAutoRedirectToOidc({
+    isOIDCOnlyTransport,
+    isOIDCAutoRedirectDisabled: IS_OIDC_AUTO_REDIRECT_DISABLED,
+    hasError,
+  });
 
   const oidcProviderLabel = OIDC_PROVIDER_LABEL;
 
@@ -55,7 +63,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     (IS_MICROSOFT_SSO_ENABLED && isSignupEnabledForProvider('microsoft')) ||
     (IS_OIDC_SSO_ENABLED && isSignupEnabledForProvider('oidc'));
 
-  let returnTo = new URL(request.url).searchParams.get('returnTo') ?? undefined;
+  let returnTo = requestUrl.searchParams.get('returnTo') ?? undefined;
 
   returnTo = isValidReturnTo(returnTo) ? normalizeReturnTo(returnTo) : undefined;
 
@@ -92,17 +100,21 @@ export default function SignIn({ loaderData }: Route.ComponentProps) {
   const [searchParams] = useSearchParams();
 
   const errorParam = searchParams.get('error');
-  const signupError = errorParam ? SIGNUP_ERROR_MESSAGES[errorParam] : undefined;
+  const signupError = errorParam
+    ? (SIGNUP_ERROR_MESSAGES[errorParam] ?? msg`An error occurred during authentication. Please try again.`)
+    : undefined;
+
+  const shouldAutoRedirect = shouldAutoRedirectToOIDC && !errorParam;
 
   useEffect(() => {
-    if (!shouldAutoRedirectToOIDC) {
+    if (!shouldAutoRedirect) {
       return;
     }
 
     void authClient.oidc.signIn({ redirectPath: returnTo ?? '/' });
-  }, [shouldAutoRedirectToOIDC, returnTo]);
+  }, [shouldAutoRedirect, returnTo]);
 
-  if (shouldAutoRedirectToOIDC) {
+  if (shouldAutoRedirect) {
     return (
       <div className="w-screen max-w-lg px-4">
         <div className="flex flex-col items-center justify-center gap-y-4 py-12">
