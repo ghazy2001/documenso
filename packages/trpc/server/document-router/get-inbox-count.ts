@@ -22,7 +22,7 @@ export const getInboxCountRoute = authenticatedProcedure
         envelope: {
           type: EnvelopeType.DOCUMENT,
           status: {
-            notIn: [DocumentStatus.DRAFT, DocumentStatus.REJECTED],
+            notIn: [DocumentStatus.DRAFT, DocumentStatus.REJECTED, DocumentStatus.CANCELLED],
           },
           deletedAt: null,
         },
