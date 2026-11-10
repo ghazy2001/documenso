@@ -53,6 +53,21 @@ const trpcInboxFind = async (page: Page, input: InboxFindInput) => {
   };
 };
 
+const trpcInboxGetCount = async (page: Page, input?: { readStatus?: string }) => {
+  const inputParam = input ? encodeURIComponent(JSON.stringify({ json: input })) : undefined;
+  const url = `${WEBAPP_BASE_URL}/api/trpc/document.inbox.getCount${inputParam ? `?input=${inputParam}` : ''}`;
+
+  const res = await page.context().request.get(url);
+
+  return {
+    res,
+    data: res.ok()
+      ? // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+        ((await res.json()).result.data.json as { count: number })
+      : null,
+  };
+};
+
 const titlesOf = (data: { data: InboxFindDocument[] } | null) => (data?.data ?? []).map((doc) => doc.title);
 
 // ─── Recipient scoping ───────────────────────────────────────────────────────
@@ -419,5 +434,37 @@ test.describe('Inbox Find - Authentication', () => {
 
     expect(res.ok()).toBeFalsy();
     expect(res.status()).toBe(401);
+  });
+});
+
+// ─── Inbox Count ─────────────────────────────────────────────────────────────
+
+test.describe('Inbox Get Count - Status Exclusions', () => {
+  test('should exclude cancelled, draft, and rejected documents from unread count', async ({ page }) => {
+    const { user: sender, team: senderTeam } = await seedUser();
+    const { user: recipient } = await seedUser();
+
+    await seedPendingDocument(sender, senderTeam.id, [recipient], {
+      createDocumentOptions: { title: 'Pending Unread Document' },
+    });
+
+    await seedCancelledDocument(sender, senderTeam.id, [recipient], {
+      createDocumentOptions: { title: 'Cancelled Document' },
+    });
+
+    await seedDraftDocument(sender, senderTeam.id, [recipient], {
+      createDocumentOptions: { title: 'Draft Document' },
+    });
+
+    await seedPendingDocument(sender, senderTeam.id, [recipient], {
+      createDocumentOptions: { title: 'Rejected Document', status: DocumentStatus.REJECTED },
+    });
+
+    await apiSignin({ page, email: recipient.email });
+
+    const { data } = await trpcInboxGetCount(page, { readStatus: 'NOT_OPENED' });
+    expect(data?.count).toBe(1);
+
+    await apiSignout({ page });
   });
 });
