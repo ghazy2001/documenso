@@ -31,13 +31,15 @@ export const getOpenIdConfiguration = async (
     throw new Error('Missing authorization_endpoint in OIDC configuration');
   }
 
-  const supportedScopes = config.scopes_supported ?? [];
-  const requiredScopes = options.requiredScopes ?? [];
+  if (config.scopes_supported !== undefined) {
+    const supportedScopes = config.scopes_supported;
+    const requiredScopes = options.requiredScopes ?? [];
 
-  const unsupportedScopes = requiredScopes.filter((scope) => !supportedScopes.includes(scope));
+    const unsupportedScopes = requiredScopes.filter((scope) => !supportedScopes.includes(scope));
 
-  if (unsupportedScopes.length > 0) {
-    throw new Error(`Requested scopes not supported by provider: ${unsupportedScopes.join(', ')}`);
+    if (unsupportedScopes.length > 0) {
+      throw new Error(`Requested scopes not supported by provider: ${unsupportedScopes.join(', ')}`);
+    }
   }
 
   return config;
