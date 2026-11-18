@@ -20,6 +20,15 @@ import { formatDocumentsPath } from '../../../utils/teams';
 import type { JobRunIO } from '../../client/_internal/job';
 import type { TSendDocumentCompletedEmailsJobDefinition } from './send-document-completed-emails';
 
+export const getCompletedDocumentAttachmentFileName = (
+  envelope: { internalVersion: number; title: string },
+  envelopeItem: { title: string },
+) => {
+  const fileNameToUse = envelope.internalVersion === 1 ? envelope.title : envelopeItem.title;
+
+  return fileNameToUse.endsWith('.pdf') ? fileNameToUse : `${fileNameToUse}.pdf`;
+};
+
 export const run = async ({ payload, io }: { payload: TSendDocumentCompletedEmailsJobDefinition; io: JobRunIO }) => {
   const { envelopeId, requestMetadata } = payload;
 
@@ -87,11 +96,8 @@ export const run = async ({ payload, io }: { payload: TSendDocumentCompletedEmai
     envelope.envelopeItems.map(async (envelopeItem) => {
       const file = await getFileServerSide(envelopeItem.documentData);
 
-      // Use the envelope title for version 1, and the envelope item title for version 2.
-      const fileNameToUse = envelope.internalVersion === 1 ? envelope.title : envelopeItem.title + '.pdf';
-
       return {
-        filename: fileNameToUse.endsWith('.pdf') ? fileNameToUse : fileNameToUse + '.pdf',
+        filename: getCompletedDocumentAttachmentFileName(envelope, envelopeItem),
         content: Buffer.from(file),
         contentType: 'application/pdf',
       };
